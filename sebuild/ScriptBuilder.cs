@@ -4,6 +4,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis.MSBuild;
+using SeBuild.Pass.DeadCodeRemover;
+using Microsoft.CodeAnalysis.Rename;
 
 namespace SeBuild;
 
@@ -25,11 +27,7 @@ public class ScriptBuilder: IDisposable {
     static ScriptBuilder() { MSBuildLocator.RegisterDefaults(); }
     
     /// <summary>Create a new <c>ScriptWorkspaceContext</c></summary>
-    /// <param name="path">
-    /// If <c>path</c> is a file, then attempt to open a solution from the given file
-    /// Otherwise, search through the directory that <c>path</c> points to to find a .sln file
-    /// </param>
-    static async public System.Threading.Tasks.Task<ScriptBuilder> Create(BuildArgs args) {
+    static async public Task<ScriptBuilder> Create(BuildArgs args) {
         var me = new ScriptBuilder();
         var project = await me.Init(args.SolutionPath, args.Project);
 

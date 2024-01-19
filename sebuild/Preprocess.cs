@@ -87,4 +87,3 @@ public class Preprocessor {
             .Accept(new PreprocessWalker(decls, _prog));
     }
 }
-

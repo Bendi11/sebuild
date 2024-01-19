@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.FindSymbols;
 
-namespace SeBuild;
+namespace SeBuild.Pass.DeadCodeRemover;
 
 public class DeadCodeRemover: CompilationPass {
     Dictionary<ISymbol, AliveMarker> _alive = new Dictionary<ISymbol, AliveMarker>(SymbolEqualityComparer.Default);
