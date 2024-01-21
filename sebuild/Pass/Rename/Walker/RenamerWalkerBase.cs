@@ -51,17 +51,10 @@ class RenamerWalkerBase: CSharpSyntaxWalker {
 
         AttemptRename(symbol, _ctx.NameGenerator.Next());
     }
-
-    private bool CanRenameSymbol(ISymbol symbol) =>
-        symbol.Kind != SymbolKind.Namespace &&
-            !_ctx.Handled.Contains(symbol) &&
-            !symbol.IsImplicitlyDeclared &&
-            symbol.Locations.Any((loc) => loc.IsInSource) &&
-            !symbol.IsExtern &&
-            symbol.CanBeReferencedByName &&
-            !(symbol is INamedTypeSymbol && (symbol.Name.Equals("Program"))) &&
-            !(symbol is IMethodSymbol && (symbol.Name.Equals("Save") || symbol.Name.Equals("Main")));
-
+    
+    /// <summary>
+    /// Attempt to rename the given symbol, finding all references to the <paramref name="symbol"/> and submitting text changes to the source
+    /// </summary>
     protected void AttemptRename(ISymbol symbol, string newName) {
         if(CanRenameSymbol(symbol)) {
             _ctx.Handled.Add(symbol);
@@ -124,5 +117,25 @@ class RenamerWalkerBase: CSharpSyntaxWalker {
             return;
         }
     }
+
+    private bool CanRenameSymbol(ISymbol symbol) {
+        if(symbol.Kind != SymbolKind.Namespace && !symbol.IsImplicitlyDeclared && !symbol.IsExtern && symbol.CanBeReferencedByName) {
+            if(symbol.Locations.Any(loc => loc.IsInSource)) {
+                if(!_ctx.Handled.Contains(symbol)) {
+                    if(symbol is INamedTypeSymbol named) {
+                        return !named.Name.Equals("Program");
+                    } else if(symbol is IMethodSymbol method) {
+                        return !(method.Name.Equals("Save") || method.Name.Equals("Main"));
+                    } else {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    
 }
 
