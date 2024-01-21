@@ -11,9 +11,18 @@ namespace SeBuild.Pass.Rename;
 /// Mutable context to be shared between instances of <c>RenamerWalkerBase</c> objects
 /// </summary>
 class RenamerWalkerContext {
-    public readonly NameGenerator NameGenerator;
+    public readonly NameGenerator NameGenerator = new NameGenerator();
     public HashSet<ISymbol> Handled = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-    public HashSet<(DocumentId, TextSpan, string)> Renamed = new HashSet<(DocumentId, TextSpan, string)>();
+    public HashSet<RenamedSymbol> Renamed = new HashSet<RenamedSymbol>();
+}
+
+/// <summary>
+/// Simple container struct defining a single rename action for a span in a given document
+/// </summary>
+struct RenamedSymbol {
+    public DocumentId DocumentId;
+    public TextSpan Span;
+    public string NewName;
 }
 
 /// <summary>
@@ -64,7 +73,13 @@ class RenamerWalkerBase: CSharpSyntaxWalker {
 
                             var node = (await loc.Location.SourceTree!.GetRootAsync()).FindNode(loc.Location.SourceSpan);
                             if(node is ConstructorInitializerSyntax) { continue; }
-                            lock(_ctx.Renamed) { _ctx.Renamed.Add((loc.Document.Id, loc.Location.SourceSpan, newName)); }
+                            lock(_ctx.Renamed) {
+                                _ctx.Renamed.Add(new RenamedSymbol() {
+                                    DocumentId = loc.Document.Id,
+                                    Span = loc.Location.SourceSpan,
+                                    NewName = newName
+                                });
+                            }
                         }
                         
                         if(!_ctx.Handled.Contains(reference.Definition)) {
@@ -77,7 +92,13 @@ class RenamerWalkerBase: CSharpSyntaxWalker {
                     foreach(var loc in locs) {
                         if(!loc.IsInSource) { continue; }
                         var doc = _sln.GetDocumentId(loc.SourceTree)!;
-                        lock(_ctx.Renamed) { _ctx.Renamed.Add((doc, loc.SourceSpan, newName)); }
+                        lock(_ctx.Renamed) {
+                            _ctx.Renamed.Add(new RenamedSymbol() {
+                                DocumentId = doc,
+                                Span = loc.SourceSpan,
+                                NewName = newName
+                            });
+                        }
                     }
                 };
 

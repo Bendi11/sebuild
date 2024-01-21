@@ -55,28 +55,28 @@ public class Renamer: CompilationPass {
         var modifications = new MultiMap<DocumentId, TextChange>();
         var unique = new Dictionary<(DocumentId, TextSpan), string>();
 
-        foreach(var (docId, reference, name) in _ctx.Renamed) {
+        foreach(var renamedSymbol in _ctx.Renamed) {
             Tick();
             
             string exist;
-            if(unique.TryGetValue((docId, reference), out exist!)) {
-                if(exist == name) {
+            if(unique.TryGetValue((renamedSymbol.DocumentId, renamedSymbol.Span), out exist!)) {
+                if(exist == renamedSymbol.NewName) {
                     Tick();
                     continue;
                 } else {
-                    var doc = Common.Project.GetDocument(docId);
-                    var originalText = (await doc!.GetTextAsync()).GetSubText(reference);
+                    var doc = Common.Project.GetDocument(renamedSymbol.DocumentId);
+                    var originalText = (await doc!.GetTextAsync()).GetSubText(renamedSymbol.Span);
                     Console.Error.WriteLine(
-                        $"{doc.Name}:{reference} conflicts: {originalText} renamed to both {name} and {exist}"
+                        $"{doc.Name}:{renamedSymbol.Span} conflicts: {originalText} renamed to both {renamedSymbol.NewName} and {exist}"
                     );
                     return;
                 }
             }
-            unique.Add((docId, reference), name);
+            unique.Add((renamedSymbol.DocumentId, renamedSymbol.Span), renamedSymbol.NewName);
 
             modifications.Add(
-                docId,
-                new TextChange(reference, name)
+                renamedSymbol.DocumentId,
+                new TextChange(renamedSymbol.Span, renamedSymbol.NewName)
             );
         }
 
