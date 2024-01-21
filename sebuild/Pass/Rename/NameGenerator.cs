@@ -8,11 +8,18 @@ namespace SeBuild.Pass.Rename;
 /// </summary>
 struct NameGenerator {
     List<IEnumerator<char>> _gen = new List<IEnumerator<char>>();
-
+    StringBuilder _ident = new StringBuilder();
+    
+    /// <summary>
+    /// Create a new unicode name generator, starting from the first valid character
+    /// </summary>
     public NameGenerator() {
         _gen.Add(UnicodeEnumerator());
     }
-
+    
+    /// <summary>
+    /// Recursive method to increment a single character, potentially overflowing into the next digit
+    /// </summary>
     private void IncrementSlot(int slot) {
         if(slot >= _gen.Count) {
             _gen.Append(UnicodeEnumerator());
@@ -24,16 +31,19 @@ struct NameGenerator {
             IncrementSlot(slot + 1);
         }
     }
-
+    
+    /// <summary>
+    /// Generate the next string identifier, potentially adding more characters if required
+    /// </summary>
     public string Next() {
-        StringBuilder sb = new StringBuilder();
-        
+        _ident.Clear();
+
         IncrementSlot(0);
         foreach(var slot in _gen) {
-            sb.Append(slot.Current);
+            _ident.Append(slot.Current);
         }
         
-        return sb.ToString();
+        return _ident.ToString();
     }
     
     /// <summary>
