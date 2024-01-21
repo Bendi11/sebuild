@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace SeBuild;
 
-[Verb("build", HelpText="build a script project into an output file")]
+[Verb("sebuild", HelpText="Build a Space Engineers script project into an output file")]
 public class BuildArgs {
     [Option('s', "sln", HelpText = "Path to a solution file or a directory containing one", Default = "./")]
     public string SolutionPath { get; set; } = "./";

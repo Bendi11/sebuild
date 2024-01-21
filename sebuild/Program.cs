@@ -78,7 +78,9 @@ internal class Program {
                 },
                 async (errs) => await Task.Run(() => {
                     foreach(var err in errs) {
-                        Console.WriteLine(err);
+                        if(err is not CommandLine.HelpRequestedError) {
+                            Console.WriteLine(err);
+                        }
                     }
                     
                     return 1;
