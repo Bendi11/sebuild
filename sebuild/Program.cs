@@ -12,6 +12,19 @@ internal class Program {
                 async (BuildArgs build) => {
                     var sw = System.Diagnostics.Stopwatch.StartNew();
                     var ctx = await ScriptBuilder.Create(build);
+                    
+                    //Get total characters in project pre-compilation to display size reduction metrics after compilation
+                    ulong initialChars = 0;
+                    foreach(var doc in ctx.Common.DocumentsIter) {
+                        if(doc.FilePath is not null && doc.Folders.FirstOrDefault() != "obj") {
+                            try {
+                                FileInfo fi = new FileInfo(doc.FilePath);
+                                initialChars += (ulong)fi.Length;
+                            } catch(Exception) {
+
+                            }
+                        }
+                    }
 
                     var syntax = await ctx.BuildProject();
                     
@@ -48,7 +61,7 @@ internal class Program {
  
                     Console.Write($"{path} -");
 
-                    var reduction = ((double)ctx.InitialChars - (double)len) / (double)ctx.InitialChars;
+                    var reduction = ((double)initialChars - (double)len) / (double)initialChars;
                     var color = reduction switch {
                         <= 0.1 => ConsoleColor.DarkGray,
                         <= 0.5 => ConsoleColor.DarkYellow,
