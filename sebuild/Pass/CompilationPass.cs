@@ -7,13 +7,13 @@ public abstract class CompilationPass {
 
     protected void Tick() {
         if(Progress is not null) {
-            Progress.Report(1);
+            //Progress.Report(1);
         }
     }
 
     protected void Msg(string message) {
         if(Progress is not null) {
-            Progress.Message = message;
+            //Progress.Message = message;
         }
     }
 

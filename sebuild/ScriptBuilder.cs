@@ -5,7 +5,6 @@ using Microsoft.Build.Construction;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis.MSBuild;
 using SeBuild.Pass.DeadCodeRemover;
-using Microsoft.CodeAnalysis.Rename;
 
 namespace SeBuild;
 
@@ -31,13 +30,6 @@ public class ScriptBuilder: IDisposable {
         var me = new ScriptBuilder();
         var project = await me.Init(args.SolutionPath, args.Project);
 
-        /*var projectId = (
-            sln
-                .Projects
-                .SingleOrDefault(p => p.Name == args.Project)?? throw new Exception($"Solution does not contain a project with name ${args.Project}")
-        ).Id;*/
-
-        
         me.Common = new ScriptCommon(project.Solution, project.Id, new List<DocumentId>(), args);
         
         me.GetDocuments(project.Id, new HashSet<ProjectId>());
@@ -58,7 +50,7 @@ public class ScriptBuilder: IDisposable {
 
         //Collect diagnostics before renaming identifiers
         if(Common.Args.RequiresAnalysis) {
-            using(var prog = new PassProgress("Analyzing project", false)) {
+            using(var prog = new PassProgress("Analyzing project", PassProgress.Mode.NoProgress)) {
                 prog.Report(0);
                 diags = (await Common.Project.GetCompilationAsync())!
                     .GetDiagnostics()
@@ -75,7 +67,7 @@ public class ScriptBuilder: IDisposable {
 
         if(Common.Args.Rename) {
             using(var prog = new PassProgress("Renaming Symbols")) {
-                var RenamePass = new Renamer(Common, prog);
+                var RenamePass = new SeBuild.Pass.Rename.Renamer(Common, prog);
                 await RenamePass.Execute();
             }
         }
@@ -127,8 +119,7 @@ public class ScriptBuilder: IDisposable {
     }
     
     /// Find a path to a file of the given extension, using the given path hint
-    private string? FindPath(string path, string? mExtension = null) {
-        string extension = mExtension ?? String.Empty;
+    private string? FindPath(string path, string? extension = "") {
         string dirPath = path;
         bool dir = true;
 
@@ -188,40 +179,30 @@ public class ScriptBuilder: IDisposable {
                 projectFile,
                 new Progress<ProjectLoadProgress>(
                     loadProgress => {
-                        progress.Message = $"{loadProgress.Operation} {loadProgress.FilePath}";
+                        //progress.Message = $"{loadProgress.Operation} {loadProgress.FilePath}";
                         progress.Report(1);
                     }
                 )
             );
-
-            /*var sln = await workspace.OpenSolutionAsync(
-                slnPath,
-                new Progress<ProjectLoadProgress>(
-                    loadProgress => {
-                        progress.Message = loadProgress.Operation.ToString();
-                        progress.Report(1);
-                    }
-                )
-            );*/
-
-            /*var envProject = 
-                sln
-                .Projects
-                .SingleOrDefault(p => p.Name == "env") ?? throw new Exception("No env.csproj added to solution file");*/
 
             // Now we use the MSBuild apis to load and evaluate our project file
             using var xmlReader = XmlReader.Create(
-                File.OpenRead(Path.Join(Path.GetDirectoryName(slnPath), "env.csproj"))
+                File.OpenRead(projectFile)
             );
-            ProjectRootElement root = ProjectRootElement.Create(
-                xmlReader,
-                new MSBuildProjectCollection(),
-                preserveFormatting: true
-            );
-            MSBuildProject msbuildProject = new MSBuildProject(root);
 
-            scriptDir = msbuildProject.GetPropertyValue("SpaceEngineersScript");
-            if(scriptDir.Length == 0) { throw new Exception("No SpaceEngineersScript property defined in env.csproj"); }
+            try {
+                ProjectRootElement root = ProjectRootElement.Create(
+                    xmlReader,
+                    new MSBuildProjectCollection(),
+                    preserveFormatting: true
+                );
+                MSBuildProject msbuildProject = new MSBuildProject(root);
+                scriptDir = msbuildProject.GetPropertyValue("SpaceEngineersScript");
+                if(scriptDir.Length == 0) { throw new Exception("No SpaceEngineersScript property defined in env.csproj"); }
+
+            } catch(Exception e) {
+                Console.WriteLine(e.Message);
+            }
             
             return project;
         }
