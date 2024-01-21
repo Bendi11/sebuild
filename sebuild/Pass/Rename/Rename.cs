@@ -54,7 +54,8 @@ public class Renamer: CompilationPass {
 
         var modifications = new MultiMap<DocumentId, TextChange>();
         var unique = new Dictionary<(DocumentId, TextSpan), string>();
-
+        
+        //Debugging step - ensure that all submitted text changes are unique: no symbol was accidentally renamed twice
         foreach(var renamedSymbol in _ctx.Renamed) {
             Tick();
             
@@ -79,7 +80,8 @@ public class Renamer: CompilationPass {
                 new TextChange(renamedSymbol.Span, renamedSymbol.NewName)
             );
         }
-
+        
+        //Apply the changes to each document
         foreach(var (docId, changes) in modifications) {
             var doc = Common.Solution.GetDocument(docId)!;
             var text = await doc.GetTextAsync();

@@ -30,9 +30,7 @@ public class ScriptBuilder: IDisposable {
         var me = new ScriptBuilder();
         var project = await me.Init(args.SolutionPath, args.Project);
 
-        me.Common = new ScriptCommon(project.Solution, project.Id, new List<DocumentId>(), args);
-        
-        me.GetDocuments(project.Id, new HashSet<ProjectId>());
+        me.Common = new ScriptCommon(project.Solution, project.Id, args);
         return me;
     }
 
@@ -92,26 +90,7 @@ public class ScriptBuilder: IDisposable {
         }
     }
 
-    private void GetDocuments(ProjectId id, HashSet<ProjectId> loadedProjects) {
-        if(loadedProjects.Contains(id)) { return; }
-        loadedProjects.Add(id);
-
-        foreach(var doc in Common.Solution.GetProject(id)!.Documents) {
-            Common.Documents.Add(doc.Id);
-            if(doc.FilePath is not null && doc.Folders.FirstOrDefault() != "obj") {
-                try {
-                    FileInfo fi = new FileInfo(doc.FilePath);
-                    InitialChars += (ulong)fi.Length;
-                } catch(Exception) {
-
-                }
-            }
-        }
-
-        foreach(var dep in Common.Solution.GetProject(id)!.ProjectReferences) {
-            GetDocuments(dep.ProjectId, loadedProjects);
-        }
-    }
+    
     
     #pragma warning disable 8618 
     private ScriptBuilder() {
