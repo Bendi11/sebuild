@@ -5,6 +5,7 @@ using Microsoft.Build.Construction;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis.MSBuild;
 using SeBuild.Pass.DeadCodeRemover;
+using SeBuild.Pass.Rename;
 
 namespace SeBuild;
 
@@ -34,6 +35,7 @@ public class ScriptBuilder: IDisposable {
 
     readonly MSBuildWorkspace _workspace;
     string _scriptDir;
+    /// <summary>Flag set in the error handler that is registered for MSBUild</summary>
     bool _workspaceFailed = false;
 
     static ScriptBuilder() { MSBuildLocator.RegisterDefaults(); }
@@ -78,7 +80,7 @@ public class ScriptBuilder: IDisposable {
 
         if(Common.Args.Rename) {
             using(var prog = new PassProgress("Renaming Symbols")) {
-                var RenamePass = new SeBuild.Pass.Rename.Renamer(Common, prog);
+                var RenamePass = new Renamer(Common, prog);
                 await RenamePass.Execute();
             }
         }
@@ -110,7 +112,10 @@ public class ScriptBuilder: IDisposable {
         _workspace = MSBuildWorkspace.Create();
     }
     
-    /// Find a path to a file of the given extension, using the given path hint
+    /// <summary>
+    /// Find a path to a file of the given <paramref name="extension"/>,
+    /// </summary>
+    /// <param name="path">Path without file extension of the file to locate</param>
     private string? FindPath(string path, string? extension = "") {
         string dirPath = path;
         bool dir = true;
@@ -156,7 +161,8 @@ public class ScriptBuilder: IDisposable {
             Console.WriteLine(wsDiag.Diagnostic.Message);
         };
 
-        string slnFile = slnPath, projectFile = projectPath;
+        string slnFile = slnPath,
+               projectFile = projectPath;
         try {
             slnFile = FindPath(slnPath, ".SLN") ??
                 throw new Exception($"Failed to find solution file using path {slnPath}");
@@ -177,7 +183,7 @@ public class ScriptBuilder: IDisposable {
                 )
             );
 
-            // Now we use the MSBuild apis to load and evaluate our project file
+            // Use the MSBuild apis to load and evaluate our project file
             using var xmlReader = XmlReader.Create(
                 File.OpenRead(projectFile)
             );
@@ -190,10 +196,12 @@ public class ScriptBuilder: IDisposable {
                 );
                 MSBuildProject msbuildProject = new MSBuildProject(root);
                 _scriptDir = msbuildProject.GetPropertyValue("SpaceEngineersScript");
-                if(_scriptDir.Length == 0) { throw new Exception("No SpaceEngineersScript property defined in project"); }
+                if(_scriptDir.Length == 0) {
+                    throw new Exception("No SpaceEngineersScript property defined in project");
+                }
 
             } catch(Exception e) {
-                Console.WriteLine(e.Message);
+                Console.WriteLine($"Failed to read {projectFile}: {e.Message}");
             }
             
             return project;
