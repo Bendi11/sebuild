@@ -35,7 +35,7 @@ internal class Program {
                             string scriptDir = ctx.DigiAutoReloadScriptDir;
                             if(!Path.Exists(scriptDir)) {
                                 Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.Write($"Digi's Auto-Reload mod folder {scriptDir} does not exist, creating the folder");
+                                Console.WriteLine($"Digi's Auto-Reload mod folder does not exist - creating it");
                                 Directory.CreateDirectory(scriptDir);
                             }
                             outputPath = Path.Combine(scriptDir, $"{build.Project}.cs");
@@ -65,7 +65,6 @@ internal class Program {
                         len = output.Length;
                         file.Write(output);
                     }
-
 
                     sw.Stop();
  

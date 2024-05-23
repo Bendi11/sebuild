@@ -43,12 +43,3 @@ public class BuildArgs {
         get => Rename || RemoveDead || Diagnostics;
     }
 }
-
-[Verb("new", HelpText="Create a new Space Engineers workspace or project from a set of templates")]
-public class NewArgs {
-    [Option('d', "directory", Required = true, HelpText = "Directory to create template in", Default = "./")]
-    public string Directory { get; set; }= "";
-    [Value(0, Required = true, MetaName = "name", HelpText = "Name to apply to the template")]
-    public string Name { get; set; } = "";
-
-}
