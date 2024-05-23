@@ -38,8 +38,7 @@ internal class Program {
                         path = build.Output;
                     }
                     
-                    StringBuilder sb;
-                    sb = new StringBuilder();
+                    StringBuilder sb = new StringBuilder();
                     foreach(var decl in syntax) { sb.Append(decl.GetText()); }
                     
                     string output = sb.ToString();

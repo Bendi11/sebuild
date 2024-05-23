@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace SeBuild;
 
-[Verb("sebuild", HelpText="Build a Space Engineers script project into an output file")]
+[Verb("build", isDefault: true, HelpText="Build a Space Engineers script project into an output file")]
 public class BuildArgs {
     [Option('s', "sln", HelpText = "Path to a solution file or a directory containing one", Default = "./")]
     public string SolutionPath { get; set; } = "./";
@@ -39,4 +39,13 @@ public class BuildArgs {
     public bool RequiresAnalysis {
         get => Rename || RemoveDead || Diagnostics;
     }
+}
+
+[Verb("new", HelpText="Create a new Space Engineers workspace or project from a set of templates")]
+public class NewArgs {
+    [Option('d', "directory", Required = true, HelpText = "Directory to create template in", Default = "./")]
+    public string Directory { get; set; }= "";
+    [Value(0, Required = true, MetaName = "name", HelpText = "Name to apply to the template")]
+    public string Name { get; set; } = "";
+
 }

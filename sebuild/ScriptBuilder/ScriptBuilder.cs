@@ -22,7 +22,13 @@ public class ScriptBuilder: IDisposable {
     /// Directory to place game scripts when they have been fully compiled
     /// </summary>
     public string GameScriptDir {
-        get => _scriptDir;
+        get;
+        private set;
+    }
+
+    public string DigiAutoReloadScriptDir {
+        get;
+        private set;
     }
     
     /// <summary>
@@ -33,8 +39,12 @@ public class ScriptBuilder: IDisposable {
         private set;
     }
 
+    private static readonly string SpaceEngineersBinVar = "SpaceEngineersBin";
+    private static readonly string SpaceEngineersAppDataVar = "SpaceEngineersAppData";
+    private static readonly string SpaceEngineersScriptDir = "IngameScripts/local";
+    private static readonly string DigitAutoReloadDir = "2999829512.sbm_PBQuickLoad";
+
     readonly MSBuildWorkspace _workspace;
-    string _scriptDir;
     /// <summary>Flag set in the error handler that is registered for MSBUild</summary>
     bool _workspaceFailed = false;
 
@@ -195,10 +205,13 @@ public class ScriptBuilder: IDisposable {
                     preserveFormatting: true
                 );
                 MSBuildProject msbuildProject = new MSBuildProject(root);
-                _scriptDir = msbuildProject.GetPropertyValue("SpaceEngineersScript");
-                if(_scriptDir.Length == 0) {
-                    throw new Exception("No SpaceEngineersScript property defined in project");
+                string appDataDir = msbuildProject.GetPropertyValue(SpaceEngineersAppDataVar);
+                if(appDataDir.Length == 0) {
+                    throw new Exception($"No {SpaceEngineersAppDataVar} property defined in project");
                 }
+                
+                GameScriptDir = Path.Combine(appDataDir, SpaceEngineersScriptDir);
+                DigiAutoReloadScriptDir = Path.Combine(appDataDir, DigitAutoReloadDir);
 
             } catch(Exception e) {
                 Console.WriteLine($"Failed to read {projectFile}: {e.Message}");
