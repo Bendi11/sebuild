@@ -28,21 +28,32 @@ internal class Program {
 
                     var syntax = await ctx.BuildProject();
                     
-                    string path;
+                    string outputPath;
                     
                     if(build.Output == null) {
-                        path = Path.Combine(ctx.GameScriptDir, build.Project);
-                        Directory.CreateDirectory(path);
-                        path = Path.Combine(path, "Script.cs");
+                        if(build.AutoReload) {
+                            string scriptDir = ctx.DigiAutoReloadScriptDir;
+                            if(!Path.Exists(scriptDir)) {
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.Write($"Digi's Auto-Reload mod folder {scriptDir} does not exist, creating the folder");
+                                Directory.CreateDirectory(scriptDir);
+                            }
+                            outputPath = Path.Combine(scriptDir, $"{build.Project}.cs");
+                        } else {
+                            string scriptDir = ctx.GameScriptDir;
+                            outputPath = Path.Combine(scriptDir, build.Project);
+                            Directory.CreateDirectory(outputPath);
+                            outputPath = Path.Combine(outputPath, "Script.cs");
+                        }
                     } else {
-                        path = build.Output;
+                        outputPath = build.Output;
                     }
                     
                     StringBuilder sb = new StringBuilder();
                     foreach(var decl in syntax) { sb.Append(decl.GetText()); }
                     
                     string output = sb.ToString();
-                    using var file = new StreamWriter(File.Create(path), Encoding.UTF8, 65536);
+                    using var file = new StreamWriter(File.Create(outputPath), Encoding.UTF8, 65536);
                 
                     long len = 0;
                     if(build.Minify) {
@@ -58,7 +69,7 @@ internal class Program {
 
                     sw.Stop();
  
-                    Console.Write($"{path} -");
+                    Console.Write($"{outputPath} -");
 
                     var reduction = ((double)initialChars - (double)len) / (double)initialChars;
                     var color = reduction switch {

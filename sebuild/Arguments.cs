@@ -10,7 +10,7 @@ public class BuildArgs {
     [Value(0, Required=true, MetaName="script", HelpText="Name of the project in solution")]
     public string Project { get; set; } = "";
 
-    [Option('o', "output", Required=false, HelpText="Path to write a compressed output file")]
+    [Option('o', "output", Required = false, HelpText="Path to write a compressed output file", SetName = "manual-output")]
     public string? Output { get; set; }
 
     [Option('m', "minify", Required=false, HelpText = "Minify the produced output")]
@@ -18,6 +18,9 @@ public class BuildArgs {
 
     [Option('r', "rename", Required = false, HelpText = "Rename symbols to reduce output size further")]
     public bool Rename { get; set; }
+
+    [Option('a', "auto-relaod", Required = false, HelpText = "Write script file to Digi's Script Auto-Reload Mod folder", SetName = "auto-output")]
+    public bool AutoReload { get; set; }
 
     [Option(
         'd',
