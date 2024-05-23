@@ -11,11 +11,14 @@ internal class Program {
             .MapResult(
                 async (BuildArgs build) => {
                     var sw = System.Diagnostics.Stopwatch.StartNew();
-                    var ctx = await ScriptBuilder.Create(build);
+                    var paths = new Paths(build.SpaceEngineersBinPath, build.SpaceEngineersAppDataPath);
+                    var wsBuild = new WorkspaceBuilder(paths);
+                    
+                    ScriptCommon ctx = await wsBuild.CreateFromMSBuild(build.Project);
                     
                     //Get total characters in project pre-compilation to display size reduction metrics after compilation
                     ulong initialChars = 0;
-                    foreach(var doc in ctx.Common.DocumentsIter) {
+                    foreach(var doc in ctx.DocumentsIter) {
                         if(doc.FilePath is not null && doc.Folders.FirstOrDefault() != "obj") {
                             try {
                                 FileInfo fi = new FileInfo(doc.FilePath);
@@ -25,14 +28,15 @@ internal class Program {
                             }
                         }
                     }
-
-                    var syntax = await ctx.BuildProject();
+                    
+                    var scriptBuilder = new ScriptBuilder(ctx);
+                    var syntax = await scriptBuilder.BuildProject(build);
                     
                     string outputPath;
                     
                     if(build.Output == null) {
                         if(build.AutoReload) {
-                            string scriptDir = ctx.DigiAutoReloadScriptDir;
+                            string scriptDir = paths.DigiAutoReloadScriptPath;
                             if(!Path.Exists(scriptDir)) {
                                 Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.WriteLine($"Digi's Auto-Reload mod folder does not exist - creating it");
@@ -40,8 +44,8 @@ internal class Program {
                             }
                             outputPath = Path.Combine(scriptDir, $"{build.Project}.cs");
                         } else {
-                            string scriptDir = ctx.GameScriptDir;
-                            outputPath = Path.Combine(scriptDir, build.Project);
+                            string scriptDir = paths.SpaceEngineersScriptDir;
+                            outputPath = Path.Combine(scriptDir, ctx.Project.Name);
                             Directory.CreateDirectory(outputPath);
                             outputPath = Path.Combine(outputPath, "Script.cs");
                         }

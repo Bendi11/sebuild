@@ -1,36 +1,18 @@
 using System.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.Build.Construction;
-using Microsoft.Build.Locator;
-using Microsoft.CodeAnalysis.MSBuild;
 using SeBuild.Pass.DeadCodeRemover;
 using SeBuild.Pass.Rename;
 
 namespace SeBuild;
 
-using MSBuildProject = Microsoft.Build.Evaluation.Project;
-using MSBuildProjectCollection = Microsoft.Build.Evaluation.ProjectCollection;
 
 
 /// <summary>
 /// Container for all compilation passes that manages the compilation sequence including renaming and deleting, and reducing a project
 /// to a flat list of definition syntax nodes that can be written to a final file
 /// </summary>
-public class ScriptBuilder: IDisposable {
-    /// <summary>
-    /// Directory to place game scripts when they have been fully compiled
-    /// </summary>
-    public string GameScriptDir {
-        get;
-        private set;
-    }
-
-    public string DigiAutoReloadScriptDir {
-        get;
-        private set;
-    }
-    
+public class ScriptBuilder {
     /// <summary>
     /// State that is shared between compilation passses
     /// </summary>
@@ -39,40 +21,16 @@ public class ScriptBuilder: IDisposable {
         private set;
     }
 
-    private static readonly string SpaceEngineersBinVar = "SpaceEngineersBin";
-    private static readonly string SpaceEngineersAppDataVar = "SpaceEngineersAppData";
-    private static readonly string SpaceEngineersScriptDir = "IngameScripts/local";
-    private static readonly string DigitAutoReloadDir = "2999829512.sbm_PBQuickLoad";
-
-    readonly MSBuildWorkspace _workspace;
-    /// <summary>Flag set in the error handler that is registered for MSBUild</summary>
-    bool _workspaceFailed = false;
-
-    static ScriptBuilder() { MSBuildLocator.RegisterDefaults(); }
-    
-    /// <summary>Create a new <c>ScriptWorkspaceContext</c></summary>
-    static async public Task<ScriptBuilder> Create(BuildArgs args) {
-        var me = new ScriptBuilder();
-        var project = await me.Init(args.SolutionPath, args.Project);
-
-        me.Common = new ScriptCommon(project.Solution, project.Id, args);
-        return me;
-    }
-
-    void IDisposable.Dispose() {
-        _workspace.Dispose();
+    public ScriptBuilder(ScriptCommon ctx) {
+        Common = ctx;
     }
 
     /// <summary>Build the given <c>Project</c> and return a list of declaration <c>CSharpSyntaxNode</c>s</summary>
-    async public Task<IEnumerable<CSharpSyntaxNode>> BuildProject() {
-        if(_workspaceFailed) {
-            return new List<CSharpSyntaxNode>();
-        }
-
+    async public Task<IEnumerable<CSharpSyntaxNode>> BuildProject(BuildArgs args) {
         IEnumerable<Diagnostic>? diags = null;
 
         //Collect diagnostics before renaming identifiers
-        if(Common.Args.RequiresAnalysis) {
+        if(args.RequiresAnalysis) {
             using(var prog = new PassProgress("Analyzing project", PassProgress.Mode.NoProgress)) {
                 prog.Report(0);
                 diags = (await Common.Project.GetCompilationAsync())!
@@ -81,14 +39,14 @@ public class ScriptBuilder: IDisposable {
             }
         }
 
-        if(Common.Args.RemoveDead) {
+        if(args.RemoveDead) {
             using(var prog = new PassProgress("Eliminating Dead Code")) {
                 var DeadCodePass = new DeadCodeRemover(Common, prog);
                 await DeadCodePass.Execute();
             }
         }
 
-        if(Common.Args.Rename) {
+        if(args.Rename) {
             using(var prog = new PassProgress("Renaming Symbols")) {
                 var RenamePass = new Renamer(Common, prog);
                 await RenamePass.Execute();
@@ -112,112 +70,6 @@ public class ScriptBuilder: IDisposable {
         
         using(var prog = new PassProgress("Flattening Declarations")) {
             return await Preprocessor.Build(Common, prog);
-        }
-    }
-
-    
-    
-    #pragma warning disable 8618 
-    private ScriptBuilder() {
-        _workspace = MSBuildWorkspace.Create();
-    }
-    
-    /// <summary>
-    /// Find a path to a file of the given <paramref name="extension"/>,
-    /// </summary>
-    /// <param name="path">Path without file extension of the file to locate</param>
-    private string? FindPath(string path, string? extension = "") {
-        string dirPath = path;
-        bool dir = true;
-
-        try {
-            var fa = File.GetAttributes(path);
-            dir = fa.HasFlag(FileAttributes.Directory);
-        } catch(FileNotFoundException) {
-            dirPath = "./";
-            dir = true;
-        }
-
-        if(dir) {
-            var withExtension =
-                from file in Directory.GetFiles(dirPath)
-                where Path.GetExtension(file).ToUpper().Equals(extension)
-                select file;
-
-            if(withExtension.Count() == 1) {
-                return withExtension.First();
-            } else {
-                foreach(var file in withExtension) {
-                    if(Path.GetFileNameWithoutExtension(file)
-                            .Equals(Path.GetFileNameWithoutExtension(path))
-                    ) {
-                        return file;
-                    }
-                }
-            }
-        } else {
-            return path;
-        }
-
-        return null;
-    }
-
-
-    async private Task<Project> Init(string slnPath, string projectPath) {
-        _workspace.WorkspaceFailed += (_, wsDiag) => {
-            if(wsDiag.Diagnostic.Kind == WorkspaceDiagnosticKind.Warning) { return; }
-            _workspaceFailed = true;
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(wsDiag.Diagnostic.Message);
-        };
-
-        string slnFile = slnPath,
-               projectFile = projectPath;
-        try {
-            slnFile = FindPath(slnPath, ".SLN") ??
-                throw new Exception($"Failed to find solution file using path {slnPath}");
-            projectFile = FindPath(projectPath, ".CSPROJ") ??
-                throw new Exception($"Failed to find project file with path {projectPath}");
-        } catch(Exception e) {
-            Console.WriteLine(e.Message);
-        }
-
-        using(var progress = new PassProgress($"Read solution {slnFile}")) {
-            var project = await _workspace.OpenProjectAsync(
-                projectFile,
-                new Progress<ProjectLoadProgress>(
-                    loadProgress => {
-                        //progress.Message = $"{loadProgress.Operation} {loadProgress.FilePath}";
-                        progress.Report(1);
-                    }
-                )
-            );
-
-            // Use the MSBuild apis to load and evaluate our project file
-            using var xmlReader = XmlReader.Create(
-                File.OpenRead(projectFile)
-            );
-
-            try {
-                ProjectRootElement root = ProjectRootElement.Create(
-                    xmlReader,
-                    new MSBuildProjectCollection(),
-                    preserveFormatting: true
-                );
-                MSBuildProject msbuildProject = new MSBuildProject(root);
-                string appDataDir = msbuildProject.GetPropertyValue(SpaceEngineersAppDataVar);
-                if(appDataDir.Length == 0) {
-                    throw new Exception($"No {SpaceEngineersAppDataVar} property defined in project");
-                }
-                
-                GameScriptDir = Path.Combine(appDataDir, SpaceEngineersScriptDir);
-                DigiAutoReloadScriptDir = Path.Combine(appDataDir, DigitAutoReloadDir);
-
-            } catch(Exception e) {
-                Console.WriteLine($"Failed to read {projectFile}: {e.Message}");
-            }
-            
-            return project;
         }
     }
 }
