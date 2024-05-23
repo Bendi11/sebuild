@@ -19,8 +19,9 @@ internal class Program {
                     //Get total characters in project pre-compilation to display size reduction metrics after compilation
                     ulong initialChars = 0;
                     foreach(var doc in ctx.DocumentsIter) {
-                        if(doc.FilePath is not null && doc.Folders.FirstOrDefault() != "obj") {
+                        if(doc.FilePath is not null) {
                             try {
+                                Console.WriteLine(doc.FilePath);
                                 FileInfo fi = new FileInfo(doc.FilePath);
                                 initialChars += (ulong)fi.Length;
                             } catch(Exception) {

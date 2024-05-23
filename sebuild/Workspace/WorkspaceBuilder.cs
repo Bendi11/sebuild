@@ -18,6 +18,10 @@ public sealed class WorkspaceBuilder {
     private static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(
         documentationMode: DocumentationMode.None
     );
+
+    private static readonly CSharpCompilationOptions CompilationOptions = new CSharpCompilationOptions(
+        OutputKind.DynamicallyLinkedLibrary
+    );
     
     private Paths _paths;
 
@@ -27,8 +31,10 @@ public sealed class WorkspaceBuilder {
 
     private ScriptCommon NewContext(string projectName) {
         var workspace = new AdhocWorkspace();
-        var project = workspace.AddProject(projectName, LanguageNames.CSharp);
-        return new ScriptCommon(workspace.CurrentSolution, project.Id);
+        var project = workspace
+            .AddProject(projectName, LanguageNames.CSharp)
+            .WithCompilationOptions(CompilationOptions);
+        return new ScriptCommon(project.Solution, project.Id);
     }
     
     /// <summary>
@@ -53,6 +59,7 @@ public sealed class WorkspaceBuilder {
         
         
         var ctx = NewContext(Path.GetFileNameWithoutExtension(projectPath));
+
         MSBuildResolver resolver = new MSBuildResolver(ctx, msBuildWorkspace);
         await resolver.AddProjectSources(projectPath);
 
@@ -68,17 +75,16 @@ public sealed class WorkspaceBuilder {
     /// </summary>
     public async Task<ScriptCommon> CreateFromFiles(params string[] paths) {
         var ctx = NewContext(DefaultProjectName);
+        var ctxProj = ctx.Project;
         foreach(var path in paths) {
             string fileContent = await File.ReadAllTextAsync(path);
             var tree = CSharpSyntaxTree.ParseText(fileContent, ParseOptions, path);
-            ctx.Project.AddDocument(path, await tree.GetRootAsync(), filePath: path);
+            ctxProj = ctx.Project.AddDocument(path, await tree.GetRootAsync(), filePath: path).Project;
         }
 
-        ctx.Project.AddMetadataReferences(
-            SpaceEngineersScriptAssemblies.Select((name, _) =>
-                MetadataReference.CreateFromFile(Path.Combine(_paths.SEBinPath, $"{name}.dll"))
-            )
-        );
+        ctxProj = ctx.Project.AddMetadataReferences(SpaceEngineersScriptAssemblyReferences);
+
+        ctx.Solution = ctxProj.Solution;
         
         return ctx;
     }
@@ -121,6 +127,12 @@ public sealed class WorkspaceBuilder {
         }
 
         return null;
+    }
+
+    private IEnumerable<MetadataReference> SpaceEngineersScriptAssemblyReferences {
+        get => SpaceEngineersScriptAssemblies.Select((name, _) =>
+            MetadataReference.CreateFromFile(Path.Combine(_paths.SEBinPath, $"{name}.dll"))
+        );
     }
 
     private static readonly string[] SpaceEngineersScriptAssemblies = {

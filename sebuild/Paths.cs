@@ -26,7 +26,7 @@ public struct Paths {
                 throw new Exception($"Failed to locate SE binary folder: no {SpaceEngineersBinVar} environment variable") :
             seBinPath;
 
-        seAppDataPath = seAppDataPath is null ?
+        SEAppDataPath = seAppDataPath is null ?
             Environment.GetEnvironmentVariable(SpaceEngineersAppDataVar) ??
                 throw new Exception($"Failed to locate SE appdata folder: no {SpaceEngineersAppDataVar} environment variable") :
             seAppDataPath;
