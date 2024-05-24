@@ -28,7 +28,6 @@ public class ScriptBuilder {
     /// <summary>Build the given <c>Project</c> and return a list of declaration <c>CSharpSyntaxNode</c>s</summary>
     async public Task<IEnumerable<CSharpSyntaxNode>> BuildProject(BuildArgs args) {
         IEnumerable<Diagnostic>? diags = null;
-        Console.WriteLine(Common.Project.CompilationOptions.OutputKind);
 
         //Collect diagnostics before renaming identifiers
         if(args.RequiresAnalysis) {

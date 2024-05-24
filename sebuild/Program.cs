@@ -21,7 +21,6 @@ internal class Program {
                     foreach(var doc in ctx.DocumentsIter) {
                         if(doc.FilePath is not null) {
                             try {
-                                Console.WriteLine(doc.FilePath);
                                 FileInfo fi = new FileInfo(doc.FilePath);
                                 initialChars += (ulong)fi.Length;
                             } catch(Exception) {

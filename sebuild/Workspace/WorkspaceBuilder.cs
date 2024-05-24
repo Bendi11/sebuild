@@ -16,11 +16,14 @@ public sealed class WorkspaceBuilder {
     /// Project name used when only a list of script files is given as sources
     private static readonly string DefaultProjectName = "FilesProject";
     private static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(
-        documentationMode: DocumentationMode.None
+        documentationMode: DocumentationMode.None,
+        languageVersion: LanguageVersion.Latest
     );
-
+    
+    /// Compilation options that will stop errors due to not having a conventional Main method
     private static readonly CSharpCompilationOptions CompilationOptions = new CSharpCompilationOptions(
-        OutputKind.DynamicallyLinkedLibrary
+        OutputKind.DynamicallyLinkedLibrary,
+        concurrentBuild: true
     );
     
     private Paths _paths;
