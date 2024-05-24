@@ -63,7 +63,7 @@ public sealed class WorkspaceBuilder {
         
         var ctx = NewContext(Path.GetFileNameWithoutExtension(projectPath));
 
-        MSBuildResolver resolver = new MSBuildResolver(ctx, msBuildWorkspace);
+        MSBuildResolver resolver = new MSBuildResolver(ctx, msBuildWorkspace, Path.GetDirectoryName(projectPath)!);
         await resolver.AddProjectSources(projectPath);
 
         if(workspaceError) {

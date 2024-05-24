@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Net;
 using System.Xml;
 using LibGit2Sharp;
 using Microsoft.Build.Construction;
@@ -7,11 +6,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.MSBuild;
 using NuGet.Common;
-using NuGet.Configuration;
 using NuGet.Packaging;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
+using MSBuildProjectItem = Microsoft.Build.Evaluation.ProjectItem;
 using MSBuildProject = Microsoft.Build.Evaluation.Project;
 
 namespace SeBuild;
@@ -27,7 +26,9 @@ public sealed class MSBuildResolver: IDisposable {
 
     private MSBuildWorkspace _workspace;
 
-    private HashSet<ProjectId> _processed = new HashSet<ProjectId>();
+    private PackageCache _remotePackages;
+
+    private HashSet<ProjectId> _localProjects;
 
     void IDisposable.Dispose() {
         _workspace.Dispose();
@@ -36,9 +37,11 @@ public sealed class MSBuildResolver: IDisposable {
     /// <summary>
     /// Create a new resolver that will add source files to the given script context
     /// </summary>
-    public MSBuildResolver(ScriptCommon ctx, MSBuildWorkspace workspace) {
+    public MSBuildResolver(ScriptCommon ctx, MSBuildWorkspace workspace, string dir) {
         _ctx = ctx;
         _workspace = workspace;
+        _remotePackages = new PackageCache(dir);
+        _localProjects = new HashSet<ProjectId>();
     }
 
     public async Task AddProjectSources(string projectPath) {
@@ -55,15 +58,30 @@ public sealed class MSBuildResolver: IDisposable {
         }
 
         foreach(var packageRef in msProject.GetItems("GitReference")) {
-            var version = packageRef.GetMetadataValue("Tag");
-            string? hint = null;
-            if(packageRef.HasMetadata("Hint")) {
-                hint = packageRef.GetMetadataValue("Hint");
-            }
-            await AddGitSource(packageRef.EvaluatedInclude, version, hint);
+            var repo = packageRef.UnevaluatedInclude; 
+            var folder = OptionalMetadata(packageRef, "Folder");
+            var host = OptionalMetadata(packageRef, "Host");
+            var commit = OptionalMetadata(packageRef, "Commit");
+            string remotePath = _remotePackages.GetPackage(
+                repo,
+                commit,
+                folder,
+                host
+            );
         }
 
         await AddProjectSources(roslynProject);
+    }
+    
+    /// <summary>
+    /// Get an optional metadata value from the given project element, returning null if the value is not present.
+    /// </summary>
+    private string? OptionalMetadata(MSBuildProjectItem element, string name) {
+        if(element.HasMetadata(name)) {
+            return element.GetMetadataValue(name);
+        } else {
+            return null;
+        }
     }
     
     /// <summary>
@@ -71,11 +89,11 @@ public sealed class MSBuildResolver: IDisposable {
     /// referenced package sources to a cache directory for later analysis
     /// </summary>
     public async Task AddProjectSources(Project roslynProject) {
-        if(_processed.Contains(roslynProject.Id)) {
+        if(_localProjects.Contains(roslynProject.Id)) {
             return;
         }
 
-        _processed.Add(roslynProject.Id);
+        _localProjects.Add(roslynProject.Id);
 
         var ctxProject = _ctx.Project;
         foreach(var doc in roslynProject.Documents) {
@@ -98,66 +116,6 @@ public sealed class MSBuildResolver: IDisposable {
 
         foreach(var projectReference in roslynProject.ProjectReferences) {
             await AddProjectSources(_workspace.CurrentSolution.GetProject(projectReference.ProjectId)!);
-        }
-    }
-    
-    public async Task AddPackageSources(string package, string versionStr, string folderName) {
-        SourceRepository repo = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json");
-        FindPackageByIdResource findById = await repo.GetResourceAsync<FindPackageByIdResource>();
-        NuGetVersion version = new NuGetVersion(versionStr);
-        using var packageStream = new MemoryStream();
-
-        await findById
-            .CopyNupkgToStreamAsync(
-                package,
-                version,
-                packageStream,
-                new SourceCacheContext(),
-                NullLogger.Instance,
-                CancellationToken.None
-            );
-
-        using var reader = new PackageArchiveReader(packageStream);
-        var nuspec = await reader.GetNuspecReaderAsync(CancellationToken.None);
-        var repository = nuspec.GetRepositoryMetadata();
-        
-        string folder = "";
-        switch(repository.Type) {
-            case "git": {
-                if(repository.Url is null) {
-                    throw new Exception($"No source repository specified for nuget package {package}");
-                }
-                var url = new Uri(repository.Url);
-
-                using var client = new HttpClient();
-
-                if(url.Host == "github.com") {
-                    folder = $"./.sebuild/cache/{repository.Commit}";
-                    if(Directory.Exists(folder)) {
-                        break;
-                    }
-                    Directory.CreateDirectory(folder);
-
-                    var zipFile = $"{repository.Url}/archive/{repository.Commit}.zip";
-                    using var zipFileStream = await client.GetStreamAsync(zipFile);
-                    ZipFile.ExtractToDirectory(zipFileStream, folder);
-                }
-            } break;
-
-            default: throw new Exception($"Unable to retrieve sources from nuget package {package} with repository type {repository.Type}");
-        }
-
-        await AddRemoteSources(Path.Combine(folder, folderName));
-    }
-
-    private async Task AddRemoteSources(string folder) {
-        foreach(var csProjFile in Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories)) {
-            Console.WriteLine($"Reading {csProjFile}");
-            var root = SyntaxFactory.ParseSyntaxTree(await File.ReadAllTextAsync(csProjFile));
-            _ctx.Solution = _ctx.Project.AddDocument(
-                csProjFile,
-                await root.GetRootAsync()
-            ).Project.Solution;
         }
     }
 }
