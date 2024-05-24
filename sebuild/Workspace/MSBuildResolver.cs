@@ -1,15 +1,7 @@
-using System.IO.Compression;
 using System.Xml;
-using LibGit2Sharp;
 using Microsoft.Build.Construction;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.MSBuild;
-using NuGet.Common;
-using NuGet.Packaging;
-using NuGet.Protocol;
-using NuGet.Protocol.Core.Types;
-using NuGet.Versioning;
 using MSBuildProjectItem = Microsoft.Build.Evaluation.ProjectItem;
 using MSBuildProject = Microsoft.Build.Evaluation.Project;
 
@@ -64,8 +56,8 @@ public sealed class MSBuildResolver: IDisposable {
             var commit = OptionalMetadata(packageRef, "Commit");
             string remotePath = _remotePackages.GetPackage(
                 repo,
-                commit,
                 folder,
+                commit,
                 host
             );
         }
