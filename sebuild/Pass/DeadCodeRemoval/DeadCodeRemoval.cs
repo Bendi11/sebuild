@@ -26,7 +26,7 @@ public class DeadCodeRemover: CompilationPass {
         var map = new Dictionary<DocumentId, SyntaxNode>();
 
         foreach(var docs in Common.DocumentsIter.Chunk(3)) {
-            tasks.Add(Task.Run(async () => {
+            //tasks.Add(Task.Run(async () => {
                 foreach(var doc in docs) {
                     var syntax = await doc.GetSyntaxRootAsync() as CSharpSyntaxNode;
                     if(syntax is null) { return; }
@@ -38,7 +38,7 @@ public class DeadCodeRemover: CompilationPass {
                         map.Add(doc.Id, removed);
                     }
                 }
-            }));
+            //}));
         }
 
         await Task.WhenAll(tasks);
