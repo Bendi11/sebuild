@@ -36,41 +36,43 @@ public sealed class MSBuildResolver: IDisposable {
         _localProjects = new HashSet<ProjectId>();
     }
 
-    public async Task AddProjectSources(string projectPath) {
-        var roslynProject = await _workspace.OpenProjectAsync(projectPath);
-
+    public void GetProjectPackages(string projectPath) {
         using var xml = new XmlTextReader(projectPath);
         var root = ProjectRootElement.Create(xml);
         var msProject = new MSBuildProject(root);
-        
-        foreach(var metaReference in roslynProject.MetadataReferences) {
-            if(metaReference.Properties.Kind == MetadataImageKind.Assembly) {
-                _ctx.Solution = _ctx.Project.AddMetadataReference(metaReference).Solution;
-            }
-        }
 
         foreach(var packageRef in msProject.GetItems("GitReference")) {
             var repo = packageRef.UnevaluatedInclude; 
             var folder = OptionalMetadata(packageRef, "Folder");
             var host = OptionalMetadata(packageRef, "Host");
             var commit = OptionalMetadata(packageRef, "Commit");
-            string remotePath = _remotePackages.GetPackage(
+            var state = _remotePackages.GetPackage(
                 repo,
                 folder,
                 commit,
                 host
             );
+            
+            if(state.CsProjPath is not null) {
+                GetProjectPackages(state.CsProjPath);
+            }
+        }
+    }
+
+    public async Task AddProjectSources(string projectPath) {
+        GetProjectPackages(projectPath);
+        var roslynProject = await _workspace.OpenProjectAsync(projectPath);
+
+        foreach(var metaReference in roslynProject.MetadataReferences) {
+            if(
+                    metaReference.Properties.Kind == MetadataImageKind.Assembly &&
+                    !_ctx.Project.MetadataReferences.Contains(metaReference)
+                ) {
+                _ctx.Solution = _ctx.Project.AddMetadataReference(metaReference).Solution;
+            }
         }
 
         await AddProjectSources(roslynProject);
-
-        foreach(var pkg in _remotePackages.Packages) {
-            if(pkg.CsProjPath is not null) {
-                await AddProjectSources(pkg.CsProjPath);
-            } else {
-                throw new Exception($"Failed to locate csproj file for remote package {pkg.RepositoryPath}");
-            }
-        }
     }
     
     /// <summary>

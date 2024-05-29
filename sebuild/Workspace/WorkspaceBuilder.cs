@@ -1,4 +1,6 @@
 
+using System.Xml;
+using System.Xml.Linq;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -47,6 +49,17 @@ public sealed class WorkspaceBuilder {
     /// </summary>
     public async Task<ScriptCommon> CreateFromMSBuild(string? projectName) {
         MSBuildLocator.RegisterDefaults();
+
+        XElement dirBuild = new XElement("Project",
+            new XElement("PropertyGroup",
+                new XElement("SpaceEngineersAppData", _paths.SEAppDataPath),
+                new XElement("MDKGameBinPath", _paths.SEBinPath)
+            )
+        );
+        
+        using(var dirBuildProps = File.OpenWrite("./Directory.Build.props")) {
+            await dirBuild.SaveAsync(dirBuildProps, SaveOptions.None, CancellationToken.None);
+        }
 
         bool workspaceError = false;
         var msBuildWorkspace = MSBuildWorkspace.Create();

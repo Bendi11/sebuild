@@ -105,10 +105,11 @@ public sealed class PackageCache {
     /// Download a package from the provided <paramref name="repository">repository name</paramref> or use a cached version if it is available.
     /// </summary>
     /// <returns>Path to the root of the loaded package</returns>
-    public string GetPackage(string repository, string? folder, string? commit, string? host = null) {
+    public RepositoryState GetPackage(string repository, string? folder, string? commit, string? host = null) {
         string folderName = RepositoryFolder(repository);
         var path = Path.Combine(CachePath, folderName);
-
+        
+        RepositoryState state;
         if(_repos.TryGetValue(folderName, out RepositoryState cachedRepository)) {
             if(commit is not null) {
                 var requestedCommit = GetCommitForPrefix(cachedRepository.Repository, commit);
@@ -117,6 +118,8 @@ public sealed class PackageCache {
                     cachedRepository.Checkout(requestedCommit);
                 }
             }
+
+            state = cachedRepository;
         } else {
             Console.WriteLine($"Nothing found for {folderName}");
             host = host ?? DefaultHost;
@@ -138,15 +141,16 @@ public sealed class PackageCache {
                 selectedCommit = GetCommitForPrefix(repo, commit);
                 Commands.Checkout(repo, selectedCommit);
             }
-
+            
+            state = new RepositoryState(repo, path, selectedCommit);
             _repos.Add(
                 folderName,
-                new RepositoryState(repo, path, selectedCommit)
+                state
             );
         }
 
 
-        return folder is null ? path : Path.Combine(path);
+        return state;
     }
     
     /// <summary>
