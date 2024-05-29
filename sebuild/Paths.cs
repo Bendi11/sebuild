@@ -20,7 +20,7 @@ public struct Paths {
     /// <summary>
     /// Name of the environment variable containing the path to space engineers' library files.
     /// </summary>
-    public static readonly string SpaceEngineersBinVar = "SpaceEngineersBin";
+    public static readonly string SpaceEngineersBinVar = "MDKGameBinPath";
     public static readonly string SpaceEngineersAppDataVar = "SpaceEngineersAppData";
     
     /// <summary>
