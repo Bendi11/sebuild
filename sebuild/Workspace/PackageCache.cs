@@ -20,16 +20,66 @@ public sealed class PackageCache {
     public string CachePath {
         get => Path.Combine(_projectDir, CacheFolder);
     }
-
-    private struct RepositoryState {
+    
+    /// State of a tracked repository, keeps the commit up to the latest required.
+    public struct RepositoryState {
         public Commit LatestCommit;
-        public Repository Repository;
+        
+        public string RepositoryPath;
+
+        public Repository Repository {
+            get;
+            private set;
+        }
+
+        /// Path to the located .csproj file if one was located, or null
+        public string? CsProjPath;
+        
+        public RepositoryState(Repository repo, string dir, Commit? latestCommit = null) {
+            RepositoryPath = dir;
+            Repository = repo;
+            LatestCommit = latestCommit ?? Repository.Head.Tip;
+            FindCsproj();
+        }
+        
+        /// Update the latest commit to the given commit and attempt to find a csproj file to use for compilation.
+        public void Checkout(Commit newCommit) {
+            Commands.Checkout(Repository, newCommit);
+            FindCsproj();
+        }
+        
+        /// Attempt to locate a main csproj file to use for transitive dependency resolution
+        private void FindCsproj() {
+            var repoName = Path.GetFileNameWithoutExtension(RepositoryPath);
+            var csprojQuery = from file in Directory.GetFiles(RepositoryPath)
+                         where Path.GetExtension(file) == ".csproj"
+                         select file;
+            
+            var csproj = csprojQuery.ToArray();
+
+            if(csproj.Length == 1) {
+                CsProjPath = csproj[0];
+                return;
+            }
+            
+            var withName = csproj.FirstOrDefault(path => Path.GetFileNameWithoutExtension(path) == repoName);
+            if(withName is not null) {
+                CsProjPath = withName;
+            }
+        }
     }
     
     /// <summary>
     /// A map of package names to their git repository states
     /// </summary>
     private Dictionary<string, RepositoryState> _repos;
+    
+    /// <summary>
+    /// Get all downloaded packages for the current project
+    /// </summary>
+    public IEnumerable<RepositoryState> Packages {
+        get => _repos.Values;
+    }
     
     /// <summary>
     /// Create a new package cache in the given project directory.
@@ -45,11 +95,7 @@ public sealed class PackageCache {
 
         foreach(var directory in Directory.GetDirectories(CachePath)) {
             var repo = new Repository(directory);
-            var commit = repo.Head.Tip;
-            var state = new RepositoryState() {
-                LatestCommit = commit,
-                Repository = repo,
-            };
+            var state = new RepositoryState(repo, directory);
 
             _repos.Add(Path.GetFileName(directory)!, state);
         }
@@ -68,7 +114,7 @@ public sealed class PackageCache {
                 var requestedCommit = GetCommitForPrefix(cachedRepository.Repository, commit);
                 if(requestedCommit.Author.When > cachedRepository.LatestCommit.Author.When) {
                     Console.WriteLine($"Using newer commit {requestedCommit.Id} over {cachedRepository.LatestCommit.Id} for repository {repository}");
-                    Commands.Checkout(cachedRepository.Repository, requestedCommit);
+                    cachedRepository.Checkout(requestedCommit);
                 }
             }
         } else {
@@ -95,10 +141,7 @@ public sealed class PackageCache {
 
             _repos.Add(
                 folderName,
-                new RepositoryState() {
-                    LatestCommit = selectedCommit,
-                    Repository = repo,
-                }
+                new RepositoryState(repo, path, selectedCommit)
             );
         }
 

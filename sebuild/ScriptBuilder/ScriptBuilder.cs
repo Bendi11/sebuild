@@ -1,4 +1,3 @@
-using System.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SeBuild.Pass.DeadCodeRemover;

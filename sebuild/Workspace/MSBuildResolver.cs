@@ -63,6 +63,14 @@ public sealed class MSBuildResolver: IDisposable {
         }
 
         await AddProjectSources(roslynProject);
+
+        foreach(var pkg in _remotePackages.Packages) {
+            if(pkg.CsProjPath is not null) {
+                await AddProjectSources(pkg.CsProjPath);
+            } else {
+                throw new Exception($"Failed to locate csproj file for remote package {pkg.RepositoryPath}");
+            }
+        }
     }
     
     /// <summary>
