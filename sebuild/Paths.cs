@@ -4,6 +4,7 @@ namespace SeBuild;
 /// <summary>
 /// File paths for Space Engineers' game binary folder and appdata folder used to add references to scripting
 /// DLLs and to export completed scripts to.
+/// </summary>
 public struct Paths {
     /// <summary>
     /// Path to the space engineers scripting library files, usually retrieved from the
@@ -22,6 +23,9 @@ public struct Paths {
     /// </summary>
     public static readonly string SpaceEngineersBinVar = "MDKGameBinPath";
     public static readonly string SpaceEngineersAppDataVar = "SpaceEngineersAppData";
+    
+    /// Default folder offset from the %APPDATA% environment variable that the space engineers script folder is located
+    private static readonly string DefaultAppDataDir = "/Roaming/SpaceEngineers";
     
     /// <summary>
     /// Directory where space engineers script directories should be placed to appear ingame
@@ -47,10 +51,16 @@ public struct Paths {
                 throw new Exception($"Failed to locate SE binary folder: no {SpaceEngineersBinVar} environment variable") :
             seBinPath;
 
-        SEAppDataPath = seAppDataPath is null ?
+        string? appData = Environment.GetEnvironmentVariable("APPDATA");
+        string? defaultSEAppData = null;
+        if(appData is not null) {
+            defaultSEAppData = Path.Combine(appData, DefaultAppDataDir);
+        }
+        
+        SEAppDataPath = seAppDataPath ??
             Environment.GetEnvironmentVariable(SpaceEngineersAppDataVar) ??
-                throw new Exception($"Failed to locate SE appdata folder: no {SpaceEngineersAppDataVar} environment variable") :
-            seAppDataPath;
+            ((defaultSEAppData is not null && Directory.Exists(defaultSEAppData)) ? defaultSEAppData : null) ??
+            throw new Exception($"Failed to locate SE appdata folder: no {SpaceEngineersAppDataVar} environment variable");
     }
 
 }
